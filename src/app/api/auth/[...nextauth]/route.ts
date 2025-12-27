@@ -12,25 +12,28 @@ const handler = NextAuth({
       name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         try {
-          const res = await fetch("http://localhost:5000/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              username: credentials?.username,
-              password: credentials?.password,
-            }),
-          });
+          const res = await fetch(
+            "https://diary-backend-production-e2fc.up.railway.app/api/auth/login",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username: credentials?.username,
+                password: credentials?.password,
+              }),
+            }
+          );
           const data = await res.json();
           if (res.ok && data.token) {
-             return { 
-               id: data.user.id, 
-               name: data.user.username, 
-               accessToken: data.token 
-             };
+            return {
+              id: data.user.id,
+              name: data.user.username,
+              accessToken: data.token,
+            };
           }
           return null;
         } catch (e) {
@@ -38,8 +41,8 @@ const handler = NextAuth({
           console.error("Authorize error:", e);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     // PERBAIKAN: Hapus 'profile' karena tidak dipakai
@@ -47,24 +50,27 @@ const handler = NextAuth({
     async signIn({ user, account }: any) {
       if (account?.provider === "google") {
         try {
-          const res = await fetch("http://localhost:5000/api/auth/google", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: user.email,
-              username: user.name,
-              avatar: user.image
-            }),
-          });
-          
+          const res = await fetch(
+            "https://diary-backend-production-e2fc.up.railway.app/api/auth/google",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: user.email,
+                username: user.name,
+                avatar: user.image,
+              }),
+            }
+          );
+
           const data = await res.json();
-          
+
           if (res.ok && data.token) {
             user.accessToken = data.token;
             user.id = data.user.id;
-            return true; 
+            return true;
           }
-          return false; 
+          return false;
         } catch (error) {
           console.error("Gagal connect backend:", error);
           return false;
@@ -82,17 +88,17 @@ const handler = NextAuth({
       }
       return token;
     },
-    
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async session({ session, token }: any) {
       session.user.id = token.id;
       session.accessToken = token.accessToken;
       return session;
-    }
+    },
   },
   pages: {
-    signIn: '/login',
-  }
+    signIn: "/login",
+  },
 });
 
 export { handler as GET, handler as POST };
