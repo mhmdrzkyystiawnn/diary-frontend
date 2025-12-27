@@ -25,14 +25,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
+  // Link Backend Railway Kamu
+  const API_URL = "https://diary-backend-production-e2fc.up.railway.app/api/files";
+
   const fetchFiles = useCallback(async (token: string) => {
     try {
-      const res = await axios.get(
-        "https://diary-backend-production-e2fc.up.railway.app/api/files",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await axios.get(API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setFiles(res.data.data);
     } catch (err) {
       console.error(err);
@@ -51,33 +51,42 @@ export default function Dashboard() {
     }
   }, [status, session, router, fetchFiles]);
 
+  // === BAGIAN YANG DIBENERIN ===
   const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validasi ukuran di Frontend (biar gak nunggu lama baru error)
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        toast.error("File terlalu besar! Maksimal 10MB.");
+        return;
+    }
+
     setUploading(true);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", file); // Nama 'file' harus sama kayak di backend upload.single('file')
 
     try {
       const token = session?.accessToken;
-      await axios.post(
-        "https://diary-backend-production-e2fc.up.railway.app/api/files/upload",
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      
+      // PERBAIKAN 1: URL gak pake '/upload' lagi
+      await axios.post(API_URL, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // PERBAIKAN 2: JANGAN SET Content-Type manual!
+          // Biar axios yang otomatis set boundary-nya.
+        },
+      });
+
       if (token) fetchFiles(token);
-      toast.success("File berhasil diupload! 📂"); // Ganti alert
+      toast.success("File berhasil diupload! 📂"); 
     } catch (error) {
-      console.error(error);
-      toast.error("Gagal Upload file."); // Ganti alert
+      console.error("Upload gagal:", error);
+      toast.error("Gagal Upload file. Cek koneksi/size."); 
     } finally {
       setUploading(false);
+      // Reset input value biar bisa upload file yang sama kalau mau
+      e.target.value = ""; 
     }
   };
 
@@ -120,13 +129,14 @@ export default function Dashboard() {
               <div className="relative h-40 bg-gray-700 flex items-center justify-center overflow-hidden">
                 {file.type === "PHOTO" ? (
                   <Image
+                    // Pastikan path image match sama controller baru
                     src={`https://diary-backend-production-e2fc.up.railway.app/uploads/${file.filename}`}
                     alt={file.originalName}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                     priority={false}
-                    unoptimized
+                    unoptimized // Biar Vercel gak rewel soal domain luar
                   />
                 ) : (
                   <FaMusic className="text-4xl text-indigo-400" />
@@ -136,9 +146,14 @@ export default function Dashboard() {
                 <p className="text-sm font-semibold truncate">
                   {file.originalName}
                 </p>
-                <span className="text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded mt-1 inline-block">
-                  {file.type}
-                </span>
+                <div className="flex justify-between items-center mt-1">
+                    <span className="text-[10px] text-gray-400 bg-gray-900 px-2 py-1 rounded inline-block">
+                    {file.type}
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                        {new Date(file.createdAt).toLocaleDateString()}
+                    </span>
+                </div>
               </div>
             </div>
           ))}
